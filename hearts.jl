@@ -26,8 +26,12 @@ function info2state(leading_player, leading_suit, player_cards)
     return s
 end
 
+function dummyMoves(s, a)
+
+end
+
 m = QuickPOMDP(
-    states = Array((0:num_states)),
+    states = Array((1:num_states)),
     actions = our_cards,
     observations = Array((0:1)),    # might not be needed here
     initialstate = Uniform(states), # placeholder
@@ -44,6 +48,9 @@ m = QuickPOMDP(
     end,
 
     reward = function (s, a)
+        # if end up with heart, return -1
+        # if end up with Queen spades, return -13
+        # else return 0
         return 3.14
     end
 )
