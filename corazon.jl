@@ -1,6 +1,6 @@
-using POMDPs, QuickPOMDPs, POMDPModelTools, POMDPSimulators, QMDP
+using POMDPs, QuickPOMDPs, POMDPModelTools, POMDPSimulators, MCTS
 
-cards = ["3S","QS","KS","6H","3H"]
+cards = ["3S","12S","13S","6H","3H"]
 encoding_base = 4
 num_agents = 2
 num_states = (encoding_base ^ (3 + length(cards))) * 2
@@ -8,6 +8,7 @@ total_rows = 2 + length(cards)
 our_cards = ["6H", "KS"]
 
 suits = ["D","C","S","H"]
+next_suit = Dict("D"=>"C", "C"=>"S", "S"=>"H", "H"=>"D")
 card_status = ["seen","m1","m2","in_play"]
 
 
@@ -26,7 +27,7 @@ function state2info(s)
 end
 
 # verify decoder
-rm, ls, pc = state2info(238)
+rm, ls, pc = state2info(14998)
 pc_str = join(pc,",")
 println("remaining_moves: $rm, leading suit: $ls, player cards: $pc_str")
 
@@ -49,8 +50,35 @@ state = info2state(rm, ls, pc)
 println("state: $state")
 
 function dummyMoves(s, a)
-
+    rm, ls, pc = state2info(s)
+    res = []
+    for i = 1:rm
+        m2_cards = cards[pc.=="m2"]
+        curr_suit = ls == "none" ? a[length(a)] : ls
+        while true
+            lowest_num = 15
+            for ii = 1:length(m2_cards)
+                if m2_cards[ii][length(m2_cards[ii])] == curr_suit && !(m2_cards[ii] in res)
+                    curr_num = parse(Int, m2_cards[ii][1:length(m2_cards[ii])-1])
+                    if curr_num < lowest_num
+                        lowest_num = curr_num
+                    end
+                end
+            end
+            if lowest_num < 15
+                card = string(lowest_num) * curr_suit
+                append!(res, card)
+                break
+            else
+                curr_suit = next_suit[curr_suit]
+            end
+        end
+        append!(res, )
+    end
+    return res
 end
+
+println(join(dummyMoves(14998, "13S"), ","))
 
 m = QuickMDP(
     states = Array((1:num_states)),
