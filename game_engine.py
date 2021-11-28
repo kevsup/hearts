@@ -9,15 +9,29 @@ class HeartsEngine:
     QUEEN_OF_SPADES = Card52(Card52.Suit.SPADES, 11)
     CARDS_PER_AGENT = 52 // NUM_AGENTS
 
-    def __init__(self):
+    def __init__(self, agent_gen_fns):
         self.agents_points = [0 for _ in range(self.NUM_AGENTS)]
+        assert len(agent_gen_fns) == self.NUM_AGENTS
+        self.agent_gen_fns = agent_gen_fns
+
+    @classmethod
+    def create(cls):
+        return cls.createWithOneCustomAgent(lambda agent_id, cards: SimpleHeartsAgent(
+            agent_id, cards))
+
+    @classmethod
+    def createWithOneCustomAgent(cls, custom_agent_gen_fn):
+        agent_gen_fns = [lambda agent_id, cards: SimpleHeartsAgent(
+            agent_id, cards) for _ in range(cls.NUM_AGENTS - 1)]
+        agent_gen_fns.append(custom_agent_gen_fn)
+        return HeartsEngine(agent_gen_fns)
 
     def deal(self):
         cards = [Card52.createFromCardIdx(i) for i in range(52)]
         random.shuffle(cards)
         assert len(cards) % self.NUM_AGENTS == 0
-        self.agents = [SimpleHeartsAgent(i,
-                                         cards[i * self.CARDS_PER_AGENT:(i + 1) * self.CARDS_PER_AGENT]) for i in range(self.NUM_AGENTS)]
+        self.agents = [self.agent_gen_fns[i](i,
+                                             cards[i * self.CARDS_PER_AGENT:(i + 1) * self.CARDS_PER_AGENT]) for i in range(self.NUM_AGENTS)]
 
     """
     @returns winner agent_id of trick
@@ -62,6 +76,7 @@ class HeartsEngine:
             agent_id_card[1].num if agent_id_card[1].suit == leading_suit else float("inf"), agent_id_card[0]), in_trick))[0]
         return winner_agent_id
 
+
 if __name__ == '__main__':
-    engine = HeartsEngine()
+    engine = HeartsEngine.create()
     engine.play(50)
