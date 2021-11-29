@@ -11,6 +11,8 @@ suits = ["D","C","S","H"]
 next_suit = Dict("D"=>"C", "C"=>"S", "S"=>"H", "H"=>"D")
 card_status = ["seen","m1","m2","in_play"]
 
+MAX_DEDUCTION = 1e5
+
 
 function state2info(s)
     base_string = string(s, base=encoding_base)
@@ -103,7 +105,11 @@ m = QuickMDP(
     end,
 
     reward = function (s, a)
+        r = 0
         rm, ls, pc = state2info(s)
+        if !(a in cards[pc.=="m1"])
+            return -MAX_DEDUCTION
+        end        
         if ls == "none"
             ls = string(a[length(a)])
         end
@@ -111,7 +117,6 @@ m = QuickMDP(
         in_play = vcat(cards[pc.=="in_play"],a,opponent_moves)
         
         # Determine if the highest card is played by our agent.
-        r = 0
         is_highest = true
         if string(a[length(a)]) == ls
             r += update_reward(a)
@@ -130,7 +135,6 @@ m = QuickMDP(
             r = 0
         end
         return r
-        return 0
     end
 )
 
