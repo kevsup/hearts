@@ -28,7 +28,7 @@ function state2info(s)
 end
 
 # verify decoder
-rm, ls, pc = state2info(828842)
+rm, ls, pc = state2info(435626)
 pc_str = join(pc,",")
 println("remaining_moves: $rm, leading suit: $ls, player cards: $pc_str")
 
@@ -164,7 +164,7 @@ function transition(s, a)
     return Deterministic(sp)
 end
 
-transition(828842, "4S")
+transition(435626, "4S")
 
 update_reward = function(a)
     r = 0
@@ -178,8 +178,10 @@ update_reward = function(a)
 end
 
 states = Array((1:num_states))
-initial_state = 828842
+initial_state = 435626
 rm, ls, pc = state2info(initial_state)
+actions = cards[pc.=="m1"]
+println("actions: $actions")
 
 m = QuickMDP(
     states = states,
@@ -204,7 +206,7 @@ m = QuickMDP(
 
         # Give max deduction if agent has leading suit card but doesn't play it.
         has_ls = false
-        for card in m1_cards:
+        for card in m1_cards
             _, suit = getValSuit(card)
             if suit == ls
                 has_ls = true
@@ -212,7 +214,7 @@ m = QuickMDP(
             end
         end
         _, a_suit = getValSuit(a)
-        if has_ls and !(a_suit == ls)
+        if has_ls && !(a_suit == ls)
             return -MAX_DEDUCTION
         end 
         
