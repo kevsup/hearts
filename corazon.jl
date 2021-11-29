@@ -177,6 +177,55 @@ update_reward = function(a)
     return r
 end
 
+function reward(s,a)
+    r = 0
+    rm, ls, pc = state2info(s)
+    if ls == "none"
+        ls = string(a[length(a)])
+    end
+
+    # Give max deduction if agent plays card not in its hand.
+    m1_cards = cards[pc.=="m1"]
+    if !(a in m1_cards)
+        return -MAX_DEDUCTION
+    end
+
+    # Give max deduction if agent has leading suit card but doesn't play it.
+    has_ls = false
+    for card in m1_cards
+        _, suit = getValSuit(card)
+        if suit == ls
+            has_ls = true
+            break
+        end
+    end
+    _, a_suit = getValSuit(a)
+    if has_ls && !(a_suit == ls)
+        return -MAX_DEDUCTION
+    end 
+    
+    # Determine if the highest card is played by our agent.
+    opponent_moves = dummyMoves(s, a)
+    is_highest = true
+    if string(a[length(a)]) == ls
+        r += update_reward(a)
+        for move in opponent_moves
+            if parse(Int, a[1:length(a)-1]) < parse(Int, move[1:length(move)-1])
+                is_highest = false
+                break
+            end
+            r += update_reward(move)
+        end
+    else
+        is_highest = false
+    end
+
+    if !is_highest
+        r = 0
+    end
+    return r
+end
+
 states = Array((1:num_states))
 initial_state = 435626
 rm, ls, pc = state2info(initial_state)
@@ -188,58 +237,8 @@ m = QuickMDP(
     actions = cards[pc.=="m1"],
     initialstate = initial_state,
     discount = 0.95,
-
     transition = transition,
-
-    reward = function (s, a)
-        r = 0
-        rm, ls, pc = state2info(s)
-        if ls == "none"
-            ls = string(a[length(a)])
-        end
-
-        # Give max deduction if agent plays card not in its hand.
-        m1_cards = cards[pc.=="m1"]
-        if !(a in m1_cards)
-            return -MAX_DEDUCTION
-        end
-
-        # Give max deduction if agent has leading suit card but doesn't play it.
-        has_ls = false
-        for card in m1_cards
-            _, suit = getValSuit(card)
-            if suit == ls
-                has_ls = true
-                break
-            end
-        end
-        _, a_suit = getValSuit(a)
-        if has_ls && !(a_suit == ls)
-            return -MAX_DEDUCTION
-        end 
-        
-        # Determine if the highest card is played by our agent.
-        opponent_moves = dummyMoves(s, a)
-        is_highest = true
-        if string(a[length(a)]) == ls
-            r += update_reward(a)
-            for move in opponent_moves
-                if parse(Int, a[1:length(a)-1]) < parse(Int, move[1:length(move)-1])
-                    is_highest = false
-                    break
-                end
-                r += update_reward(move)
-            end
-        else
-            is_highest = false
-        end
-    
-        if !is_highest
-            r = 0
-        end
-        return r
-    end
-)
+    reward = reward)
 
 #solver = MCTSSolver(n_iterations=10000, depth=20, exploration_constant=5.0)
 solver = DPWSolver(depth=1)
