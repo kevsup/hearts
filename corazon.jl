@@ -3,7 +3,7 @@ using POMDPs, QuickPOMDPs, POMDPModelTools, POMDPSimulators, MCTS
 cards = ["3S","12S","13S","6H","3H"]
 encoding_base = 4
 num_agents = 2
-num_states = (encoding_base ^ (3 + length(cards))) * 2
+num_states = (encoding_base ^ (2 + length(cards)))
 total_rows = 2 + length(cards)
 our_cards = ["6H", "KS"]
 
@@ -54,11 +54,11 @@ function dummyMoves(s, a)
     res = []
     for i = 1:rm
         m2_cards = cards[pc.=="m2"]
-        curr_suit = ls == "none" ? a[length(a)] : ls
+        curr_suit = ls == "none" ? string(a[length(a)]) : ls
         while true
             lowest_num = 15
             for ii = 1:length(m2_cards)
-                if m2_cards[ii][length(m2_cards[ii])] == curr_suit && !(m2_cards[ii] in res)
+                if string(m2_cards[ii][length(m2_cards[ii])]) == curr_suit && !(m2_cards[ii] in res)
                     curr_num = parse(Int, m2_cards[ii][1:length(m2_cards[ii])-1])
                     if curr_num < lowest_num
                         lowest_num = curr_num
@@ -67,28 +67,28 @@ function dummyMoves(s, a)
             end
             if lowest_num < 15
                 card = string(lowest_num) * curr_suit
-                append!(res, card)
+                push!(res, card)
                 break
             else
-                curr_suit = next_suit[curr_suit]
+                curr_suit = next_suit[string(curr_suit)]
             end
         end
-        append!(res, )
     end
     return res
 end
 
 println(join(dummyMoves(14998, "13S"), ","))
 
+states = Array((1:num_states))
 m = QuickMDP(
-    states = Array((1:num_states)),
+    states = states,
     actions = our_cards,
     initialstate = 238, # placeholder
     discount = 0.95,
 
     transition = function (s, a)
         # placeholder
-        return initialstate
+        return Uniform(states)
     end,
 
     reward = function (s, a)
@@ -99,9 +99,11 @@ m = QuickMDP(
     end
 )
 
-solver = MCTSSolver(n_iterations=50, depth=20, exploration_constant=5.0)
+solver = MCTSSolver(n_iterations=10000, depth=20, exploration_constant=5.0)
 policy = solve(solver, m)
 
-a = action(policy, "left")
+println(trunc(Int,num_states/2))
+a = action(policy, trunc(Int,num_states/2))
 println("a: $a")
+
 
