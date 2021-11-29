@@ -2,14 +2,31 @@ from abc import ABC, abstractmethod
 from enum import Enum
 
 
-class Card52:
-    NUM_CARDS_PER_SUIT = 13
+class Card:
+    NUM_CARDS = 6
+    NUM_CARDS_PER_SUIT = 3
+
+    assert NUM_CARDS % NUM_CARDS_PER_SUIT == 0
 
     class Suit(Enum):
         SPADES = 0
-        CLUBS = 1
-        HEARTS = 2
-        DIAMONDS = 3
+        HEARTS = 1
+
+        @classmethod
+        def getSuitShortStr(cls, suit):
+            if suit == cls.SPADES:
+                return "S"
+            elif suit == cls.HEARTS:
+                return "H"
+            raise Exception(f"Unexpected suit {suit}")
+
+        @classmethod
+        def getShortStrSuit(cls, suit_str):
+            if suit_str == "S":
+                return cls.SPADES
+            elif suit_str == "H":
+                return cls.HEARTS
+            raise Exception(f"Unexpected suit_str {suit_str}")
 
     def __init__(self, suit, num):
         assert type(suit) is self.Suit
@@ -20,11 +37,14 @@ class Card52:
     def __eq__(self, other):
         return (self.suit, self.num) == (other.suit, other.num)
 
+    def __hash__(self):
+        return (self.suit, self.num).__hash__()
+
     """
-    @param card_idx: an idx within [0, 51] corresponding to the idx'th card
-    @returns Card52 instance
+    @param card_idx: an idx within [0, NUM_CARDS] corresponding to the idx'th card
+    @returns Card6 instance
     """
     @classmethod
     def createFromCardIdx(cls, card_idx):
-        assert card_idx >= 0 and card_idx < 52
-        return Card52(cls.Suit(card_idx // cls.NUM_CARDS_PER_SUIT), 1 + card_idx % cls.NUM_CARDS_PER_SUIT if card_idx > 0 else cls.NUM_CARDS_PER_SUIT)
+        assert card_idx >= 0 and card_idx < cls.NUM_CARDS
+        return Card(cls.Suit(card_idx // cls.NUM_CARDS_PER_SUIT), 1 + (card_idx % cls.NUM_CARDS_PER_SUIT))
