@@ -1,14 +1,23 @@
-using POMDPs, QuickPOMDPs, POMDPModelTools, POMDPSimulators, MCTS, BasicPOMCP
+using POMDPs, QuickPOMDPs, POMDPModelTools, POMDPSimulators, MCTS, BasicPOMCP, PyCall
 
-cards = ["3S","12S","13S","6H","3H"]
+py"""
+import sys
+sys.path.insert(0, ".")
+"""
+
+suits = ["S","H"]
+py"""
+from card import Card
+def getAllCards(suits):
+    return [f"{i}{suit_str}" for i in range(1, Card.NUM_CARDS_PER_SUIT + 1) for suit_str in suits]
+"""
+cards = py"getAllCards"(suits)
 encoding_base = 4
 num_agents = 2
 num_states = (encoding_base ^ (2 + length(cards)))
 total_rows = 2 + length(cards)
-our_cards = ["6H", "KS"]
 
-suits = ["D","C","S","H"]
-next_suit = Dict("D"=>"C", "C"=>"S", "S"=>"H", "H"=>"D")
+next_suit = Dict("S"=>"H", "H"=>"D")
 card_status = ["seen","m1","m2","in_play"]
 
 
@@ -26,28 +35,18 @@ function state2info(s)
     return remaining_moves, leading_suit, player_cards
 end
 
-# verify decoder
-rm, ls, pc = state2info(12950)
-pc_str = join(pc,",")
-println("remaining_moves: $rm, leading suit: $ls, player cards: $pc_str")
-
 function info2state(remaining_moves, leading_suit, player_cards)
     base_string = string(remaining_moves)
-    if remaining_moves == 3
+    if remaining_moves == 1
         base_string *= "0"
     else
         base_string *= string(findfirst(isequal(leading_suit), suits) - 1)
     end
     
     card_string = join([string(findfirst(isequal(card), card_status) - 1) for card in player_cards])
-
-    s = parse(Int, base_string * card_string, base=encoding_base)
+    s = parse(Int64, base_string * card_string, base=encoding_base)
     return s
 end
-
-# verify encoder
-state = info2state(rm, ls, pc)
-println("state: $state")
 
 function dummyMoves(s, a)
     rm, ls, pc = state2info(s)
@@ -56,7 +55,7 @@ function dummyMoves(s, a)
         m2_cards = cards[pc.=="m2"]
         curr_suit = ls == "none" ? string(a[length(a)]) : ls
         while true
-            lowest_num = 15
+            lowest_num = 4
             for ii = 1:length(m2_cards)
                 if string(m2_cards[ii][length(m2_cards[ii])]) == curr_suit && !(m2_cards[ii] in res)
                     curr_num = parse(Int, m2_cards[ii][1:length(m2_cards[ii])-1])
@@ -65,7 +64,7 @@ function dummyMoves(s, a)
                     end
                 end
             end
-            if lowest_num < 15
+            if lowest_num < 4
                 card = string(lowest_num) * curr_suit
                 push!(res, card)
                 break
@@ -77,33 +76,55 @@ function dummyMoves(s, a)
     return res
 end
 
-println(join(dummyMoves(12950, "13S"), ","))
-
 states = Array((1:num_states))
-m = QuickMDP(
-    states = states,
-    actions = our_cards,
-    initialstate = 12345, # placeholder
-    discount = 0.95,
 
-    transition = function (s, a)
-        # placeholder
-        return Uniform(states)
-    end,
+function getNextAction(remaining_moves, leading_suit, player_cards)
+    state = info2state(remaining_moves, leading_suit, player_cards)
+    m = QuickMDP(
+        states = states,
+        actions = cards,
+        initialstate = state, # placeholder
+        discount = 0.95,
 
-    reward = function (s, a)
-        # if end up with heart, return -1
-        # if end up with Queen spades, return -13
-        # else return 0
-        return 3.14
+        transition = function (s, a)
+            # placeholder
+            return Uniform(states)
+        end,
+
+        reward = function (s, a)
+            # if end up with heart, return -1
+            # if end up with Queen spades, return -13
+            # else return 0
+            return 3.14
+        end
+    )
+    solver = DPWSolver(depth=1)
+    policy = solve(solver, m)
+    a = action(policy, state)
+    println("a: $a")
+    return a
+end
+
+seen = []
+
+function observeActionTaken(action)
+    global seen
+    push!(seen, action)
+    if size(seen) == size(cards)
+        seen = []
     end
-)
+    println("After observeActionTaken seen set to: $seen")
+end
 
-#solver = MCTSSolver(n_iterations=10000, depth=20, exploration_constant=5.0)
-solver = DPWSolver()
-policy = solve(solver, m)
+py"""
+from game_engine import HeartsEngine
+from agent import MDPHeartsAgent
 
-a = action(policy, 12345)
-println("a: $a")
+def runGame(seen, getNextAction, observeActionTaken):
+    def customAgentGenFn(agent_id, cards):
+        return MDPHeartsAgent(agent_id, cards, seen, getNextAction, observeActionTaken)
+    engine = HeartsEngine.createWithOneCustomAgent(customAgentGenFn)
+    engine.play(5)
+"""
 
-
+py"runGame"(seen, getNextAction, observeActionTaken)
