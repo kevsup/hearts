@@ -79,6 +79,17 @@ end
 
 println(join(dummyMoves(12950, "13S"), ","))
 
+update_reward = function(a)
+    r = 0
+    if string(a[1:length(a)-1]) == "13"
+        r -= 13
+    end
+    if string(a[length(a)]) == "H"
+        r -= 1
+    end
+    return r
+end
+
 states = Array((1:num_states))
 m = QuickMDP(
     states = states,
@@ -92,18 +103,37 @@ m = QuickMDP(
     end,
 
     reward = function (s, a)
-        # if end up with heart, return -1
-        # if end up with Queen spades, return -13
-        # else return 0
-        return 3.14
+        rm, ls, pc = state2info(s)
+        if ls == "none"
+            ls = string(a[length(a)])
+        end
+        opponent_moves = dummyMoves(s, a)
+        in_play = vcat(cards[pc.=="in_play"],a,opponent_moves)
+        
+        # Determine if the highest card is played by our agent.
+        r = 0
+        is_highest = true
+        if string(a[length(a)]) == ls
+            r += update_reward(a)
+            for move in opponent_moves
+                if parse(Int, a[1:length(a)-1]) < parse(Int, move[1:length(move)-1])
+                    is_highest = false
+                    break
+                end
+                r += update_reward(move)
+            end
+        else
+            is_highest = false
+        end
+    
+        if !is_highest
+            r = 0
+        end
+        return r
+        return 0
     end
 )
 
 #solver = MCTSSolver(n_iterations=10000, depth=20, exploration_constant=5.0)
 solver = DPWSolver()
 policy = solve(solver, m)
-
-a = action(policy, 12345)
-println("a: $a")
-
-
