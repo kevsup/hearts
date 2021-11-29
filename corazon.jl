@@ -192,16 +192,32 @@ m = QuickMDP(
     reward = function (s, a)
         r = 0
         rm, ls, pc = state2info(s)
-        if !(a in cards[pc.=="m1"])
-            return -MAX_DEDUCTION
-        end        
         if ls == "none"
             ls = string(a[length(a)])
         end
-        opponent_moves = dummyMoves(s, a)
-        in_play = vcat(cards[pc.=="in_play"],a,opponent_moves)
+
+        # Give max deduction if agent plays card not in its hand.
+        m1_cards = cards[pc.=="m1"]
+        if !(a in m1_cards)
+            return -MAX_DEDUCTION
+        end
+
+        # Give max deduction if agent has leading suit card but doesn't play it.
+        has_ls = false
+        for card in m1_cards:
+            _, suit = getValSuit(card)
+            if suit == ls
+                has_ls = true
+                break
+            end
+        end
+        _, a_suit = getValSuit(a)
+        if has_ls and !(a_suit == ls)
+            return -MAX_DEDUCTION
+        end 
         
         # Determine if the highest card is played by our agent.
+        opponent_moves = dummyMoves(s, a)
         is_highest = true
         if string(a[length(a)]) == ls
             r += update_reward(a)
