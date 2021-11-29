@@ -1,4 +1,4 @@
-using POMDPs, QuickPOMDPs, POMDPModelTools, POMDPSimulators, MCTS
+using POMDPs, QuickPOMDPs, POMDPModelTools, POMDPSimulators, MCTS, BasicPOMCP
 
 cards = ["3S","12S","13S","6H","3H"]
 encoding_base = 4
@@ -27,7 +27,7 @@ function state2info(s)
 end
 
 # verify decoder
-rm, ls, pc = state2info(14998)
+rm, ls, pc = state2info(12950)
 pc_str = join(pc,",")
 println("remaining_moves: $rm, leading suit: $ls, player cards: $pc_str")
 
@@ -77,13 +77,13 @@ function dummyMoves(s, a)
     return res
 end
 
-println(join(dummyMoves(14998, "13S"), ","))
+println(join(dummyMoves(12950, "13S"), ","))
 
 states = Array((1:num_states))
 m = QuickMDP(
     states = states,
     actions = our_cards,
-    initialstate = 238, # placeholder
+    initialstate = 12345, # placeholder
     discount = 0.95,
 
     transition = function (s, a)
@@ -99,11 +99,11 @@ m = QuickMDP(
     end
 )
 
-solver = MCTSSolver(n_iterations=10000, depth=20, exploration_constant=5.0)
+#solver = MCTSSolver(n_iterations=10000, depth=20, exploration_constant=5.0)
+solver = DPWSolver()
 policy = solve(solver, m)
 
-println(trunc(Int,num_states/2))
-a = action(policy, trunc(Int,num_states/2))
+a = action(policy, 12345)
 println("a: $a")
 
 
