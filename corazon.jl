@@ -3,13 +3,14 @@ using POMDPs, QuickPOMDPs, POMDPModelTools, POMDPSimulators, MCTS, BasicPOMCP
 cards = ["3S","12S","13S","6H","3H","3C","4C","5C"]
 encoding_base = 4
 num_agents = 2
-num_states = (encoding_base ^ (2 + length(cards)))
 total_rows = 2 + length(cards)
-our_cards = ["6H", "13S"]
+num_states = (encoding_base ^ total_rows)
 
 suits = ["D","C","S","H"]
 next_suit = Dict("D"=>"C", "C"=>"S", "S"=>"H", "H"=>"D")
 card_status = ["seen","m1","m2","in_play"]
+
+MAX_DEDUCTION = 1e5
 
 
 function state2info(s)
@@ -64,10 +65,11 @@ function dummyMoves(s, a)
         while true
             lowest_num = 15
             for ii = 1:length(m2_cards)
-                if string(m2_cards[ii][length(m2_cards[ii])]) == curr_suit && !(m2_cards[ii] in res)
-                    curr_num = parse(Int, m2_cards[ii][1:length(m2_cards[ii])-1])
-                    if curr_num < lowest_num
-                        lowest_num = curr_num
+                card = m2_cards[ii]
+                val, suit = getValSuit(card)
+                if suit == curr_suit && !(card in res)
+                    if val < lowest_num
+                        lowest_num = val 
                     end
                 end
             end
@@ -164,20 +166,60 @@ end
 
 transition(828842, "4S")
 
+update_reward = function(a)
+    r = 0
+    if string(a[1:length(a)-1]) == "13"
+        r -= 13
+    end
+    if string(a[length(a)]) == "H"
+        r -= 1
+    end
+    return r
+end
+
 states = Array((1:num_states))
+initial_state = 828842
+rm, ls, pc = state2info(initial_state)
+
 m = QuickMDP(
     states = states,
-    actions = our_cards,
-    initialstate = 828842, # placeholder
+    actions = cards[pc.=="m1"],
+    initialstate = initial_state,
     discount = 0.95,
 
     transition = transition,
 
     reward = function (s, a)
-        # if end up with heart, return -1
-        # if end up with Queen spades, return -13
-        # else return 0
-        return 3.14
+        r = 0
+        rm, ls, pc = state2info(s)
+        if !(a in cards[pc.=="m1"])
+            return -MAX_DEDUCTION
+        end        
+        if ls == "none"
+            ls = string(a[length(a)])
+        end
+        opponent_moves = dummyMoves(s, a)
+        in_play = vcat(cards[pc.=="in_play"],a,opponent_moves)
+        
+        # Determine if the highest card is played by our agent.
+        is_highest = true
+        if string(a[length(a)]) == ls
+            r += update_reward(a)
+            for move in opponent_moves
+                if parse(Int, a[1:length(a)-1]) < parse(Int, move[1:length(move)-1])
+                    is_highest = false
+                    break
+                end
+                r += update_reward(move)
+            end
+        else
+            is_highest = false
+        end
+    
+        if !is_highest
+            r = 0
+        end
+        return r
     end
 )
 
@@ -185,7 +227,5 @@ m = QuickMDP(
 solver = DPWSolver(depth=1)
 policy = solve(solver, m)
 
-a = action(policy, 828842)
+a = action(policy, initial_state)
 println("a: $a")
-
-
