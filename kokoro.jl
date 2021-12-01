@@ -260,7 +260,7 @@ function reward(s,a)
             break
         end
     end
-    _, a_suit = getValSuit(a)
+    a_val, a_suit = getValSuit(a)
     if has_ls && !(a_suit == ls)
         return -MAX_DEDUCTION
     end 
@@ -282,6 +282,10 @@ function reward(s,a)
         for card in in_play
             r += update_reward(card)
         end
+    elseif a == "12S"
+        r = 13
+    elseif a_suit == "H"
+        r = 4 * a_val / 14
     end
 
     return r
@@ -375,4 +379,4 @@ def runGame(seen, getNextAction, observeActionTaken, numRuns):
     print(f"Agent placing: {customAgentPlaceCount}, {points_history} {leader_deltas}")
 """
 
-py"runGame"(seen, getNextAction, observeActionTaken, 10)
+py"runGame"(seen, getNextAction, observeActionTaken, 20)
