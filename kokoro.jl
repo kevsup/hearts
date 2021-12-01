@@ -1,4 +1,9 @@
-using POMDPs, QuickPOMDPs, POMDPModelTools, POMDPSimulators, MCTS, BasicPOMCP, DiscreteValueIteration
+using POMDPs, QuickPOMDPs, POMDPModelTools, POMDPSimulators, MCTS, BasicPOMCP, DiscreteValueIteration, PyCall
+
+py"""
+import sys
+sys.path.insert(0, ".")
+"""
 
 ################ CONSTANTS ############################
 
@@ -15,7 +20,7 @@ CARDS = convert(Vector{String}, CARDS)
 
 TOTAL_ROWS = 2 + length(CARDS)
 
-LOOKAHEAD_DEPTH = 6
+LOOKAHEAD_DEPTH = 2
 
 ENCODING_BASE = 4
 
@@ -33,7 +38,7 @@ function state2info(s)
     remaining_moves = parse(Int, base_string[1])
 
     leading_suit = "none"
-    if remaining_moves < 3
+    if remaining_moves < ENCODING_BASE - 1
         leading_suit = SUITS[parse(Int, base_string[2]) + 1]
     end
 
@@ -272,6 +277,7 @@ end
 #INITIAL_STATE = "220000000000110000000000002210000002223122222222222211"
 INITIAL_STATE = "222122212221221221212221222122222222213122212221222122"
 
+#=
 # verify decoder
 rm, ls, pc = state2info(INITIAL_STATE)
 pc_str = join(pc,",")
@@ -283,40 +289,60 @@ println("state: $state")
 
 ACTIONS = CARDS[pc.=="m1"]
 STATES_SET = Set([INITIAL_STATE])
-getStatesSet!(INITIAL_STATE, STATES_SET, ACTIONS, LOOKAHEAD_DEPTH)
-
-#states_array = (x->string(x)).(STATES_SET)
 
 println("states set size: ", length(STATES_SET))
 println("actions: $ACTIONS")
 println("in play: ", CARDS[pc.=="in_play"])
+=#
 
-m = QuickMDP(
-    states = STATES_SET,
-    actions = ACTIONS,
-    initialstate = INITIAL_STATE,
-    discount = 1.0,
-    transition = transition,
-    reward = reward,
-    isterminal = s -> (function (s)
-        rm, ls, pc = state2info(s)
-        new_actions = CARDS[pc.=="m1"]
-        return (length(ACTIONS) - length(new_actions) >= LOOKAHEAD_DEPTH)
-    end)(s)
-)
+function getNextAction(remaining_moves, leading_suit, player_cards)
+    # println("$remaining_moves $leading_suit $player_cards")
+    state = info2state(remaining_moves, leading_suit, player_cards)
+    states_set = Set([state])
+    actions = CARDS[player_cards.=="m1"]
+    getStatesSet!(state, states_set, actions, LOOKAHEAD_DEPTH)
+    m = QuickMDP(
+        states = states_set,
+        actions = actions,
+        initialstate = state,
+        discount = 1.0,
+        transition = transition,
+        reward = reward,
+        isterminal = s -> (function (s)
+            rm, ls, pc = state2info(s)
+            new_actions = CARDS[pc.=="m1"]
+            return (length(actions) - length(new_actions) >= LOOKAHEAD_DEPTH)
+        end)(s)
+    )
+    # note: MCTS and DPW seem to struggle with getting stuck in branches
+    #       e.g. with a Queen of Spades in play, the MCTS will choose to play the King of Spades smh
+    # surprisingly, our state space is not too large to use value iteration, which plays reasonably
+    solver = ValueIterationSolver(max_iterations=100)
+    policy = solve(solver, m)
+    a = action(policy, state)
+    println("a: $a")
+    return a
+end
 
-# note: MCTS and DPW seem to struggle with getting stuck in branches
-#       e.g. with a Queen of Spades in play, the MCTS will choose to play the King of Spades smh
-# surprisingly, our state space is not too large to use value iteration, which plays reasonably
+seen = []
 
-#solver = MCTSSolver(n_iterations=20, depth=LOOKAHEAD_DEPTH, exploration_constant=1.0)
-#solver = DPWSolver(n_iterations=2000, depth=LOOKAHEAD_DEPTH, exploration_constant=1.0)
-solver = ValueIterationSolver(max_iterations=100)
-policy = solve(solver, m)
+function observeActionTaken(action)
+    global seen
+    push!(seen, action)
+    if size(seen) == size(CARDS)
+        seen = []
+    end
+    # println("After observeActionTaken seen set to: $seen")
+end
 
-a = action(policy, INITIAL_STATE)
-println("a: $a")
+py"""
+from game_engine import HeartsEngine
+from agent import MDPHeartsAgent
+def runGame(seen, getNextAction, observeActionTaken):
+    def customAgentGenFn(agent_id, cards):
+        return MDPHeartsAgent(agent_id, cards, seen, getNextAction, observeActionTaken)
+    engine = HeartsEngine.createWithOneCustomAgent(customAgentGenFn)
+    engine.play(50)
+"""
 
-v = value(policy, INITIAL_STATE)
-println("v: $v")
-
+py"runGame"(seen, getNextAction, observeActionTaken)

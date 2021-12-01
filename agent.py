@@ -4,7 +4,7 @@ from card import Card
 
 
 class HeartsAgent(ABC):
-    NUM_AGENTS = 2
+    NUM_AGENTS = 4
 
     """
     @param agent_id
@@ -63,7 +63,7 @@ class MDPHeartsAgent(HeartsAgent):
     def __init__(self, agent_id, cards, seen, get_next_action_fn, observe_action_taken_fn):
         self.agent_id = agent_id
         self.in_play = []
-        print("Initializing MDPHeartsAgent")
+        print(f"Initializing MDPHeartsAgent w/ id {self.agent_id}")
         for card in cards:
             print((card.num, card.suit))
         self.cards = set(cards)
@@ -73,7 +73,7 @@ class MDPHeartsAgent(HeartsAgent):
 
     def getNextAction(self):
         print(f"getNextAction called for agent {self.agent_id}")
-        remaining_moves = 1 - len(self.in_play)
+        remaining_moves = (self.NUM_AGENTS - 1) - len(self.in_play)
         leading_suit = Card.Suit.getSuitShortStr(
             self.in_play[0].suit) if len(self.in_play) > 0 else "none"
         player_cards = []
@@ -93,10 +93,10 @@ class MDPHeartsAgent(HeartsAgent):
         suit = Card.Suit.getShortStrSuit(action_str[-1])
         mdp_card = Card(suit, int(action_str[:-1]))
         if mdp_card not in self.cards:
-            print(
+            raise Exception(
                 f"was not able to find mdp_card: ({mdp_card.suit},{mdp_card.num}) in cards: {self.cards})")
             # choose a random card to essentially penalize for making an incorrect decision
-            return next(iter(self.cards))
+            # return next(iter(self.cards))
         return mdp_card
 
     def observeActionTaken(self, agent_id, card):

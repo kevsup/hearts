@@ -5,7 +5,7 @@ import random
 
 
 class HeartsEngine:
-    NUM_AGENTS = 2
+    NUM_AGENTS = 4
     # QUEEN_OF_SPADES = Card(Card.Suit.SPADES, 11)
     CARDS_PER_AGENT = Card.NUM_CARDS // NUM_AGENTS
 
