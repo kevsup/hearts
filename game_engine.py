@@ -6,7 +6,7 @@ import random
 
 class HeartsEngine:
     NUM_AGENTS = 4
-    # QUEEN_OF_SPADES = Card(Card.Suit.SPADES, 11)
+    QUEEN_OF_SPADES = Card(Card.Suit.SPADES, 11)
     CARDS_PER_AGENT = Card.NUM_CARDS // NUM_AGENTS
 
     def __init__(self, agent_gen_fns):
@@ -53,12 +53,11 @@ class HeartsEngine:
         winner_agent_id = self._determine_trick_winner(in_trick)
         self.agents_points[winner_agent_id] += sum(
             card.suit == Card.Suit.HEARTS for _, card in in_trick)
-        """
         if self.QUEEN_OF_SPADES in map(lambda ac: ac[1], in_trick):
             self.agents_points[winner_agent_id] += 13
-        """
         return winner_agent_id
 
+    # @returns agent_id and points of winner
     def play(self, win_points):
         start_agent_id = 0
         while True:
@@ -70,9 +69,7 @@ class HeartsEngine:
                 if any(map(lambda points: points >= win_points, self.agents_points)):
                     points, winner_agent_id = sorted(
                         [(points, i) for i, points in enumerate(self.agents_points)])[0]
-                    print(
-                        f"Winner: {winner_agent_id} with {points} points!")
-                    return
+                    return (winner_agent_id, points)
 
     @staticmethod
     def _determine_trick_winner(in_trick):

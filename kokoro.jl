@@ -338,11 +338,16 @@ end
 py"""
 from game_engine import HeartsEngine
 from agent import MDPHeartsAgent
-def runGame(seen, getNextAction, observeActionTaken):
+from collections import defaultdict
+def runGame(seen, getNextAction, observeActionTaken, numRuns):
     def customAgentGenFn(agent_id, cards):
         return MDPHeartsAgent(agent_id, cards, seen, getNextAction, observeActionTaken)
-    engine = HeartsEngine.createWithOneCustomAgent(customAgentGenFn)
-    engine.play(50)
+    winnerCount = defaultdict(int)
+    for i in range (numRuns):
+        engine = HeartsEngine.createWithOneCustomAgent(customAgentGenFn)
+        winnerAgentId, points = engine.play(50)
+        winnerCount[winnerAgentId] += 1
+    print(f"Winners: {winnerCount}")
 """
 
-py"runGame"(seen, getNextAction, observeActionTaken)
+py"runGame"(seen, getNextAction, observeActionTaken, 5)
