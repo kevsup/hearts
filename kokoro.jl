@@ -1,68 +1,58 @@
 using POMDPs, QuickPOMDPs, POMDPModelTools, POMDPSimulators, MCTS, BasicPOMCP, DiscreteValueIteration
 
-suits = ["D","C","S","H"]
-cards = []
-for suit in suits
+################ CONSTANTS ############################
+
+SUITS = ["D","C","S","H"]
+
+CARDS = []
+for suit in SUITS
     for num = 2:14
         # 2 through Ace
-        push!(cards, string(num) * suit)
+        push!(CARDS, string(num) * suit)
     end
 end
-cards = convert(Vector{String}, cards)
-println("cards $cards")
+CARDS = convert(Vector{String}, CARDS)
 
-lookahead_depth = 6
+TOTAL_ROWS = 2 + length(CARDS)
 
-encoding_base = 4
-num_agents = 2
-total_rows = 2 + length(cards)
-num_states = (encoding_base ^ total_rows)
+LOOKAHEAD_DEPTH = 6
 
-# queen of spades in play
-initial_state = "222122212221221221212221222122222222213122212221222122"
+ENCODING_BASE = 4
 
-next_suit = Dict("D"=>"C", "C"=>"S", "S"=>"H", "H"=>"D")
-card_status = ["seen","m1","m2","in_play"]
+NEXT_SUIT = Dict("D"=>"C", "C"=>"S", "S"=>"H", "H"=>"D")
+
+CARD_STATUS = ["seen","m1","m2","in_play"]
 
 MAX_DEDUCTION = 1e5
 
+################ HELPER FUNCTIONS ############################
 
 function state2info(s)
     base_string = s
-    base_string = repeat("0",total_rows - length(base_string)) * base_string
+    base_string = repeat("0",TOTAL_ROWS - length(base_string)) * base_string
     remaining_moves = parse(Int, base_string[1])
 
     leading_suit = "none"
     if remaining_moves < 3
-        leading_suit = suits[parse(Int, base_string[2]) + 1]
+        leading_suit = SUITS[parse(Int, base_string[2]) + 1]
     end
 
-    player_cards = [card_status[parse(Int, num)+1] for num in base_string[3:length(base_string)]]
+    player_cards = [CARD_STATUS[parse(Int, num)+1] for num in base_string[3:length(base_string)]]
     return remaining_moves, leading_suit, player_cards
 end
-
-# verify decoder
-rm, ls, pc = state2info(initial_state)
-pc_str = join(pc,",")
-println("remaining_moves: $rm, leading suit: $ls, player cards: $pc_str")
 
 function info2state(remaining_moves, leading_suit, player_cards)
     base_string = string(remaining_moves)
     if remaining_moves == 3
         base_string *= "0"
     else
-        base_string *= string(findfirst(isequal(leading_suit), suits) - 1)
+        base_string *= string(findfirst(isequal(leading_suit), SUITS) - 1)
     end
     
-    card_string = join([string(findfirst(isequal(card), card_status) - 1) for card in player_cards])
+    card_string = join([string(findfirst(isequal(card), CARD_STATUS) - 1) for card in player_cards])
 
-    #s = parse(Int, base_string * card_string, base=encoding_base)
     return base_string * card_string
 end
-
-# verify encoder
-state = info2state(rm, ls, pc)
-println("state: $state")
 
 function getValSuit(card)
     value = parse(Int, card[1:length(card)-1])
@@ -74,7 +64,7 @@ function dummyMoves(s, a)
     rm, ls, pc = state2info(s)
     res = []
     for i = 1:rm
-        m2_cards = cards[pc.=="m2"]
+        m2_cards = CARDS[pc.=="m2"]
         if length(m2_cards) == 0
             continue
         end
@@ -96,15 +86,12 @@ function dummyMoves(s, a)
                 push!(res, card)
                 break
             else
-                curr_suit = next_suit[string(curr_suit)]
+                curr_suit = NEXT_SUIT[string(curr_suit)]
             end
         end
     end
     return res
 end
-
-# verify dummyMoves
-#println(join(dummyMoves(initial_state, "13S"), ","))
 
 function transition_string(s, a)
     rm, ls, pc = state2info(s)
@@ -112,24 +99,19 @@ function transition_string(s, a)
         val, suit = getValSuit(a)
         ls = suit
     end
+
     opponent_moves = dummyMoves(s, a)
-    #println("rm: $rm ls: $ls pc: $pc")
-    #println("om: $opponent_moves")
-    in_play = vcat(cards[pc.=="in_play"],a,opponent_moves)
-    #println("in play: $in_play")
+    in_play = vcat(CARDS[pc.=="in_play"],a,opponent_moves)
     
     next_pc = pc
     for i = 1:length(next_pc)
-        if cards[i] in in_play
+        if CARDS[i] in in_play
             next_pc[i] = "seen"
         end
     end
 
-    #println("next pc: $next_pc")
-
     max_val = 0
     max_card = ""
-    #println("ls = $ls")
     for i = 1:length(in_play)
         card = in_play[i]
         val, suit = getValSuit(card)
@@ -141,42 +123,33 @@ function transition_string(s, a)
 
     leading_player = findfirst(isequal(max_card), in_play)
     our_agent = findfirst(isequal(a), in_play)
-    #println("max card: $max_card")
-    #println("max val: $max_val")
-    #println("leading player: $leading_player")
-    #println("our agent: $our_agent")
     if leading_player <= our_agent
-        leading_player += encoding_base
+        leading_player += ENCODING_BASE
     end
 
     next_rm = leading_player - our_agent - 1
-
-    #println("next rm: $next_rm")
-
-    # anticipate preliminary moves if our agent does not play first
     counter = 0
     for pc in next_pc
         if pc == "seen"
             counter += 1
         end
     end
-    if next_rm < encoding_base - 1 && counter < length(next_pc)
-        num_prelim_moves = encoding_base - next_rm - 1
-        m2_cards = cards[next_pc.=="m2"]
-        #println("new m2 cards: $m2_cards")
+    if next_rm < ENCODING_BASE - 1 && counter < length(next_pc)
+        num_prelim_moves = ENCODING_BASE - next_rm - 1
+        m2_cards = CARDS[next_pc.=="m2"]
         first_card = m2_cards[1]
         val, next_ls = getValSuit(first_card)
-        next_pc[findfirst(isequal(first_card),cards)] = "in_play"
+        next_pc[findfirst(isequal(first_card),CARDS)] = "in_play"
         temp_state = info2state(num_prelim_moves - 1, next_ls, next_pc)
         prelim_moves = vcat(first_card,dummyMoves(temp_state, first_card))
 
-        for i = 1:length(cards)
-            if cards[i] in prelim_moves
+        for i = 1:length(CARDS)
+            if CARDS[i] in prelim_moves
                 next_pc[i] = "in_play"
             end
         end
     else
-        next_ls = suits[1]
+        next_ls = SUITS[1]
     end
 
     sp = info2state(next_rm, next_ls, next_pc)
@@ -194,94 +167,20 @@ function transition(s, a)
     end
 
     actionSuits = Set()
-    for a in cards[pc.=="m1"]
+    for a in CARDS[pc.=="m1"]
         val, suit = getValSuit(a)
         push!(actionSuits, suit)
     end
     
     val, suit = getValSuit(a)
-    if (suit != ls && (ls in actionSuits)) || (a in cards[pc.=="seen"])
+    if (suit != ls && (ls in actionSuits)) || (a in CARDS[pc.=="seen"])
         #println("illegal move = ", a)
         return Deterministic(s)
     end
 
-    opponent_moves = dummyMoves(s, a)
-    #println("rm: $rm ls: $ls pc: $pc")
-    #println("om: $opponent_moves")
-    in_play = vcat(cards[pc.=="in_play"],a,opponent_moves)
-    #println("in play: $in_play")
-    
-    next_pc = pc
-    for i = 1:length(next_pc)
-        if cards[i] in in_play
-            next_pc[i] = "seen"
-        end
-    end
-
-    #println("next pc: $next_pc")
-
-    max_val = 0
-    max_card = ""
-    #println("ls = $ls")
-    for i = 1:length(in_play)
-        card = in_play[i]
-        val, suit = getValSuit(card)
-        if suit == ls && val > max_val
-            max_val = val
-            max_card = card
-        end
-    end
-
-    leading_player = findfirst(isequal(max_card), in_play)
-    our_agent = findfirst(isequal(a), in_play)
-    #println("max card: $max_card")
-    #println("max val: $max_val")
-    #println("leading player: $leading_player")
-    #println("our agent: $our_agent")
-    if leading_player <= our_agent
-        leading_player += encoding_base
-    end
-
-    next_rm = leading_player - our_agent - 1
-
-    #println("next rm: $next_rm")
-
-    # anticipate preliminary moves if our agent does not play first
-    counter = 0
-    for pc in next_pc
-        if pc == "seen"
-            counter += 1
-        end
-    end
-    if next_rm < encoding_base - 1 && counter < length(next_pc)
-        num_prelim_moves = encoding_base - next_rm - 1
-        m2_cards = cards[next_pc.=="m2"]
-        #println("new m2 cards: $m2_cards")
-        first_card = m2_cards[1]
-        val, next_ls = getValSuit(first_card)
-        next_pc[findfirst(isequal(first_card),cards)] = "in_play"
-        temp_state = info2state(num_prelim_moves - 1, next_ls, next_pc)
-        prelim_moves = vcat(first_card,dummyMoves(temp_state, first_card))
-
-        for i = 1:length(cards)
-            if cards[i] in prelim_moves
-                next_pc[i] = "in_play"
-            end
-        end
-    else
-        next_ls = suits[1]
-    end
-
-    sp = info2state(next_rm, next_ls, next_pc)
-
-    #println("next state = ", sp)
-
+    sp = transition_string(s, a)
     return Deterministic(sp)
 end
-
-# verify transition function
-transition(initial_state, "4S")
-
 
 function getStatesSet!(curr_state, states_set, actions, lookahead)
     if length(actions) == 0 || lookahead == 0
@@ -306,15 +205,6 @@ function getStatesSet!(curr_state, states_set, actions, lookahead)
     end
 end
 
-actions = cards[pc.=="m1"]
-states_set = Set([initial_state])
-getStatesSet!(initial_state, states_set, actions, lookahead_depth)
-
-states_array = (x->string(x)).(states_set)
-
-println("states set size: ", length(states_set))
-
-
 update_reward = function(card)
     r = 0
     if string(card) == "12S"
@@ -335,7 +225,7 @@ function reward(s,a)
     end
 
     # Give max deduction if agent plays card not in its hand.
-    m1_cards = cards[pc.=="m1"]
+    m1_cards = CARDS[pc.=="m1"]
     if !(a in m1_cards)
         return -MAX_DEDUCTION
     end
@@ -356,7 +246,7 @@ function reward(s,a)
     
     # Determine if the highest card is played by our agent.
     opponent_moves = dummyMoves(s, a)
-    in_play = vcat(cards[pc.=="in_play"],a,opponent_moves)
+    in_play = vcat(CARDS[pc.=="in_play"],a,opponent_moves)
     highest_card = ""
     highest_val = 0
     for card in in_play
@@ -373,50 +263,60 @@ function reward(s,a)
         end
     end
 
-    #=
-    if s == initial_state
-        println("action = $a, OG state")
-    else
-        println("action = $a, state = $s")
-    end
-    println("reward = $r")
-    =#
-
     return r
 end
 
-rm, ls, pc = state2info(initial_state)
-actions = cards[pc.=="m1"]
-println("actions: $actions")
-println("in play: ", cards[pc.=="in_play"])
+################ END OF HELPER FUNCTIONS ############################
 
-function isTerminal(s)
-    rm, ls, pc = state2info(s)
-    new_actions = cards[pc.=="m1"]
-    return length(actions) - length(new_actions) >= lookahead_depth
-end
+# queen of spades in play
+#INITIAL_STATE = "220000000000110000000000002210000002223122222222222211"
+INITIAL_STATE = "222122212221221221212221222122222222213122212221222122"
+
+# verify decoder
+rm, ls, pc = state2info(INITIAL_STATE)
+pc_str = join(pc,",")
+println("remaining_moves: $rm, leading suit: $ls, player cards: $pc_str")
+
+# verify encoder
+state = info2state(rm, ls, pc)
+println("state: $state")
+
+ACTIONS = CARDS[pc.=="m1"]
+STATES_SET = Set([INITIAL_STATE])
+getStatesSet!(INITIAL_STATE, STATES_SET, ACTIONS, LOOKAHEAD_DEPTH)
+
+#states_array = (x->string(x)).(STATES_SET)
+
+println("states set size: ", length(STATES_SET))
+println("actions: $ACTIONS")
+println("in play: ", CARDS[pc.=="in_play"])
 
 m = QuickMDP(
-    states = states_set,
-    actions = actions,
-    initialstate = initial_state,
+    states = STATES_SET,
+    actions = ACTIONS,
+    initialstate = INITIAL_STATE,
     discount = 1.0,
     transition = transition,
     reward = reward,
-    isterminal = s -> isTerminal(s))
+    isterminal = s -> (function (s)
+        rm, ls, pc = state2info(s)
+        new_actions = CARDS[pc.=="m1"]
+        return (length(ACTIONS) - length(new_actions) >= LOOKAHEAD_DEPTH)
+    end)(s)
+)
 
 # note: MCTS and DPW seem to struggle with getting stuck in branches
 #       e.g. with a Queen of Spades in play, the MCTS will choose to play the King of Spades smh
 # surprisingly, our state space is not too large to use value iteration, which plays reasonably
 
-#solver = MCTSSolver(n_iterations=20, depth=lookahead_depth, exploration_constant=1.0)
-#solver = DPWSolver(n_iterations=2000, depth=lookahead_depth, exploration_constant=1.0)
+#solver = MCTSSolver(n_iterations=20, depth=LOOKAHEAD_DEPTH, exploration_constant=1.0)
+#solver = DPWSolver(n_iterations=2000, depth=LOOKAHEAD_DEPTH, exploration_constant=1.0)
 solver = ValueIterationSolver(max_iterations=100)
 policy = solve(solver, m)
 
-a = action(policy, initial_state)
+a = action(policy, INITIAL_STATE)
 println("a: $a")
 
-v = value(policy, initial_state)
+v = value(policy, INITIAL_STATE)
 println("v: $v")
 
