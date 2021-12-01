@@ -20,7 +20,7 @@ CARDS = convert(Vector{String}, CARDS)
 
 TOTAL_ROWS = 2 + length(CARDS)
 
-LOOKAHEAD_DEPTH = 4
+LOOKAHEAD_DEPTH = 6
 
 ENCODING_BASE = 4
 
@@ -74,25 +74,41 @@ function dummyMoves(s, a)
             continue
         end
         curr_suit = ls == "none" ? string(a[length(a)]) : ls
+        counter = 0
         while true
             lowest_num = 15
+            highest_num = 0
             for ii = 1:length(m2_cards)
                 card = m2_cards[ii]
                 val, suit = getValSuit(card)
 
                 if suit == curr_suit && !(card in res)
-                    if val < lowest_num
-                        lowest_num = val 
+                    if counter == 0
+                        if val < lowest_num
+                            lowest_num = val 
+                        end
+                    else
+                        if val > highest_num
+                            highest_num = val 
+                        end
                     end
                 end
             end
-            if lowest_num < 15
-                card = string(lowest_num) * curr_suit
+            if (counter == 0 && lowest_num < 15) || (counter > 0 && highest_num > 0)
+                card = string(counter == 0 ? lowest_num : highest_num) * curr_suit
                 push!(res, card)
                 break
             else
-                curr_suit = NEXT_SUIT[string(curr_suit)]
+                if "12S" in m2_cards && !("12S" in res)
+                    push!(res, "12S")
+                    break
+                elseif counter == 0
+                    curr_suit = "H"
+                else
+                    curr_suit = NEXT_SUIT[string(curr_suit)]
+                end
             end
+            counter += 1
         end
     end
     return res
