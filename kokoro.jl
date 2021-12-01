@@ -338,18 +338,25 @@ py"""
 from game_engine import HeartsEngine
 from agent import MDPHeartsAgent
 from collections import defaultdict
+POINTS_THRESHOLD = 100
+CUSTOM_AGENT_ID = 3
 def runGame(seen, getNextAction, observeActionTaken, numRuns):
     def customAgentGenFn(agent_id, cards):
         return MDPHeartsAgent(agent_id, cards, seen, getNextAction, observeActionTaken)
-    customAgentId = 3
     customAgentPlaceCount = defaultdict(int)
+    points_history = []
+    leader_deltas = []
     for i in range (numRuns):
         engine = HeartsEngine.createWithOneCustomAgent(customAgentGenFn)
-        leaderboard = engine.play(13)
-        for p, (_, agentId) in enumerate(leaderboard):
-            if agentId == customAgentId:
+
+        leaderboard = engine.play(POINTS_THRESHOLD)
+
+        for p, (points, agentId) in enumerate(leaderboard):
+            if agentId == CUSTOM_AGENT_ID:
                 customAgentPlaceCount[p] += 1
-    print(f"Agent placing: {customAgentPlaceCount}")
+                points_history.append(points)
+                leader_deltas.append(points - leaderboard[0][0])
+    print(f"Agent placing: {customAgentPlaceCount}, {points_history} {leader_deltas}")
 """
 
-py"runGame"(seen, getNextAction, observeActionTaken, 50)
+py"runGame"(seen, getNextAction, observeActionTaken, 10)
