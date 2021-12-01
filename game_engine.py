@@ -6,7 +6,7 @@ import random
 
 class HeartsEngine:
     NUM_AGENTS = 4
-    QUEEN_OF_SPADES = Card(Card.Suit.SPADES, 11)
+    QUEEN_OF_SPADES = Card(Card.Suit.SPADES, 12)
     CARDS_PER_AGENT = Card.NUM_CARDS // NUM_AGENTS
 
     def __init__(self, agent_gen_fns):
@@ -39,7 +39,7 @@ class HeartsEngine:
     """
 
     def trick(self, start_agent_id):
-        print(f"trick with start: {start_agent_id}")
+        print(f"trick with start: {start_agent_id}, points: {self.agents_points}")
         in_trick = []  # (agent_id, Card)
         for offset in range(self.NUM_AGENTS):
             curr_agent_id = (start_agent_id + offset) % self.NUM_AGENTS
@@ -51,13 +51,17 @@ class HeartsEngine:
                 notified_agent.observeActionTaken(agent.agent_id, card)
         # update points based on winner of trick (ignores the rule reset rule when player takes all 13 hearts and the queen of spades, for sake of reduced complexity)
         winner_agent_id = self._determine_trick_winner(in_trick)
-        self.agents_points[winner_agent_id] += sum(
+        won_points = 0
+        won_points += sum(
             card.suit == Card.Suit.HEARTS for _, card in in_trick)
         if self.QUEEN_OF_SPADES in map(lambda ac: ac[1], in_trick):
-            self.agents_points[winner_agent_id] += 13
+            won_points += 13
+        print(
+            f"agent {winner_agent_id} won the trick and received {won_points} points")
+        self.agents_points[winner_agent_id] += won_points
         return winner_agent_id
 
-    # @returns agent_id and points of winner
+    # @returns leaderboard: sorted (points, agent_id)
     def play(self, win_points):
         start_agent_id = 0
         while True:
@@ -67,15 +71,15 @@ class HeartsEngine:
                 print(f"Calling trick for the {i}th time")
                 start_agent_id = self.trick(start_agent_id)
                 if any(map(lambda points: points >= win_points, self.agents_points)):
-                    points, winner_agent_id = sorted(
-                        [(points, i) for i, points in enumerate(self.agents_points)])[0]
-                    return (winner_agent_id, points)
+                    leaderboard = sorted(
+                        [(points, i) for i, points in enumerate(self.agents_points)])
+                    return leaderboard
 
     @staticmethod
     def _determine_trick_winner(in_trick):
         leading_suit = in_trick[0][1].suit
         _, winner_agent_id = sorted(map(lambda agent_id_card: (
-            agent_id_card[1].num if agent_id_card[1].suit == leading_suit else float("inf"), agent_id_card[0]), in_trick))[0]
+            agent_id_card[1].num if agent_id_card[1].suit == leading_suit else float("-inf"), agent_id_card[0]), in_trick))[-1]
         return winner_agent_id
 
 

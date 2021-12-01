@@ -72,7 +72,6 @@ class MDPHeartsAgent(HeartsAgent):
         self.observe_action_taken_fn = observe_action_taken_fn
 
     def getNextAction(self):
-        print(f"getNextAction called for agent {self.agent_id}")
         remaining_moves = (self.NUM_AGENTS - 1) - len(self.in_play)
         leading_suit = Card.Suit.getSuitShortStr(
             self.in_play[0].suit) if len(self.in_play) > 0 else "none"
@@ -97,11 +96,13 @@ class MDPHeartsAgent(HeartsAgent):
                 f"was not able to find mdp_card: ({mdp_card.suit},{mdp_card.num}) in cards: {self.cards})")
             # choose a random card to essentially penalize for making an incorrect decision
             # return next(iter(self.cards))
+        print(
+            f"Agent {self.agent_id} played {str(mdp_card)} w/ hand {[str(card) for card in self.cards]}")
         return mdp_card
 
     def observeActionTaken(self, agent_id, card):
         print(
-            f"observeActionTaken by agent {agent_id} and card {card.num} {card.suit} and in_play: {self.in_play}")
+            f"observeActionTaken by agent {agent_id} and card {card.num} {card.suit} and in_play: {[str(card) for card in self.in_play]}")
         self.observe_action_taken_fn(
             f"{card.num}{Card.Suit.getSuitShortStr(card.suit)}")
 

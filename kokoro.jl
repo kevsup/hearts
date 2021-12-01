@@ -20,7 +20,7 @@ CARDS = convert(Vector{String}, CARDS)
 
 TOTAL_ROWS = 2 + length(CARDS)
 
-LOOKAHEAD_DEPTH = 2
+LOOKAHEAD_DEPTH = 4
 
 ENCODING_BASE = 4
 
@@ -320,7 +320,6 @@ function getNextAction(remaining_moves, leading_suit, player_cards)
     solver = ValueIterationSolver(max_iterations=100)
     policy = solve(solver, m)
     a = action(policy, state)
-    println("a: $a")
     return a
 end
 
@@ -342,12 +341,15 @@ from collections import defaultdict
 def runGame(seen, getNextAction, observeActionTaken, numRuns):
     def customAgentGenFn(agent_id, cards):
         return MDPHeartsAgent(agent_id, cards, seen, getNextAction, observeActionTaken)
-    winnerCount = defaultdict(int)
+    customAgentId = 3
+    customAgentPlaceCount = defaultdict(int)
     for i in range (numRuns):
         engine = HeartsEngine.createWithOneCustomAgent(customAgentGenFn)
-        winnerAgentId, points = engine.play(50)
-        winnerCount[winnerAgentId] += 1
-    print(f"Winners: {winnerCount}")
+        leaderboard = engine.play(13)
+        for p, (_, agentId) in enumerate(leaderboard):
+            if agentId == customAgentId:
+                customAgentPlaceCount[p] += 1
+    print(f"Agent placing: {customAgentPlaceCount}")
 """
 
-py"runGame"(seen, getNextAction, observeActionTaken, 5)
+py"runGame"(seen, getNextAction, observeActionTaken, 50)

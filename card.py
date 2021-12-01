@@ -50,6 +50,9 @@ class Card:
     def __hash__(self):
         return (self.suit, self.num).__hash__()
 
+    def __str__(self):
+        return f"Card({(self.suit, self.num)})"
+
     """
     @param card_idx: an idx within [0, NUM_CARDS) corresponding to the idx'th card
     @returns Card6 instance
