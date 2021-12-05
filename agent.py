@@ -28,6 +28,13 @@ class HeartsAgent(ABC):
     def observeActionTaken(self, agent_id, card):
         pass
 
+    """
+    @description called when any agent needs to reset seen cards    
+    """
+    @abstractmethod
+    def resetSeenCards(self):
+        pass
+
 
 class SimpleHeartsAgent(HeartsAgent):
     def __init__(self, agent_id, cards):
@@ -58,16 +65,19 @@ class SimpleHeartsAgent(HeartsAgent):
         if len(self.in_play) == self.NUM_AGENTS:
             self.in_play.clear()
 
+    def resetSeenCards(self):
+        pass
+
 
 class MDPHeartsAgent(HeartsAgent):
-    def __init__(self, agent_id, cards, seen, get_next_action_fn, observe_action_taken_fn):
+    def __init__(self, agent_id, cards, getSeen, get_next_action_fn, observe_action_taken_fn):
         self.agent_id = agent_id
         self.in_play = []
         print(f"Initializing MDPHeartsAgent w/ id {self.agent_id}")
         for card in cards:
             print((card.num, card.suit))
         self.cards = set(cards)
-        self.seen = seen
+        self.getSeen = getSeen
         self.get_next_action_fn = get_next_action_fn
         self.observe_action_taken_fn = observe_action_taken_fn
 
@@ -75,13 +85,14 @@ class MDPHeartsAgent(HeartsAgent):
         remaining_moves = (self.NUM_AGENTS - 1) - len(self.in_play)
         leading_suit = Card.Suit.getSuitShortStr(
             self.in_play[0].suit) if len(self.in_play) > 0 else "none"
+
         player_cards = []
         for i in range(Card.NUM_CARDS):
             card = Card.createFromCardIdx(i)
-            if f"{card.num}{Card.Suit.getSuitShortStr(card.suit)}" in self.seen:
-                player_cards.append("seen")
-            elif card in self.in_play:
+            if card in self.in_play:
                 player_cards.append("in_play")
+            elif f"{card.num}{Card.Suit.getSuitShortStr(card.suit)}" in self.getSeen():
+                player_cards.append("seen")
             elif card in self.cards:
                 player_cards.append("m1")
                 continue
@@ -111,3 +122,6 @@ class MDPHeartsAgent(HeartsAgent):
         self.in_play.append(card)
         if len(self.in_play) == self.NUM_AGENTS:
             self.in_play.clear()
+
+    def resetSeenCards(self):
+        self.observe_action_taken_fn("reset")

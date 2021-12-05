@@ -73,6 +73,8 @@ class HeartsEngine:
                 if any(map(lambda points: points >= win_points, self.agents_points)):
                     leaderboard = sorted(
                         [(points, i) for i, points in enumerate(self.agents_points)])
+                    for notified_agent in self.agents:
+                        notified_agent.resetSeenCards()
                     return leaderboard
 
     @staticmethod

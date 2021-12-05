@@ -30,6 +30,8 @@ CARD_STATUS = ["seen","m1","m2","in_play"]
 
 MAX_DEDUCTION = 1e5
 
+ILLEGAL_MOVE_STATE = "-1"
+
 ################ HELPER FUNCTIONS ############################
 
 function state2info(s)
@@ -196,7 +198,7 @@ function transition(s, a)
     val, suit = getValSuit(a)
     if (suit != ls && (ls in actionSuits)) || (a in CARDS[pc.=="seen"])
         #println("illegal move = ", a)
-        return Deterministic(s)
+        return Deterministic(ILLEGAL_MOVE_STATE)
     end
 
     sp = transition_string(s, a)
@@ -318,20 +320,23 @@ println("in play: ", CARDS[pc.=="in_play"])
 function getNextAction(remaining_moves, leading_suit, player_cards)
     # println("$remaining_moves $leading_suit $player_cards")
     state = info2state(remaining_moves, leading_suit, player_cards)
-    states_set = Set([state])
+    states_set = Set([ILLEGAL_MOVE_STATE, state])
     actions = CARDS[player_cards.=="m1"]
     getStatesSet!(state, states_set, actions, LOOKAHEAD_DEPTH)
     m = QuickMDP(
         states = states_set,
         actions = actions,
         initialstate = state,
-        discount = 1.0,
+        discount = 0.9,
         transition = transition,
         reward = reward,
         isterminal = s -> (function (s)
+            if s == ILLEGAL_MOVE_STATE
+                return true
+            end
             rm, ls, pc = state2info(s)
             new_actions = CARDS[pc.=="m1"]
-            return (length(actions) - length(new_actions) >= LOOKAHEAD_DEPTH)
+            return (length(actions) - length(new_actions) >= LOOKAHEAD_DEPTH) || length(new_actions) == 0
         end)(s)
     )
     # note: MCTS and DPW seem to struggle with getting stuck in branches
@@ -348,10 +353,14 @@ seen = []
 function observeActionTaken(action)
     global seen
     push!(seen, action)
-    if size(seen) == size(CARDS)
+    if length(seen) == length(CARDS) || action == "reset"
         seen = []
     end
     # println("After observeActionTaken seen set to: $seen")
+end
+
+function getSeen()
+    return seen
 end
 
 py"""
@@ -360,9 +369,9 @@ from agent import MDPHeartsAgent
 from collections import defaultdict
 POINTS_THRESHOLD = 100
 CUSTOM_AGENT_ID = 3
-def runGame(seen, getNextAction, observeActionTaken, numRuns):
+def runGame(getSeen, getNextAction, observeActionTaken, numRuns):
     def customAgentGenFn(agent_id, cards):
-        return MDPHeartsAgent(agent_id, cards, seen, getNextAction, observeActionTaken)
+        return MDPHeartsAgent(agent_id, cards, getSeen, getNextAction, observeActionTaken)
     customAgentPlaceCount = defaultdict(int)
     points_history = []
     leader_deltas = []
@@ -379,4 +388,4 @@ def runGame(seen, getNextAction, observeActionTaken, numRuns):
     print(f"Agent placing: {customAgentPlaceCount}, {points_history} {leader_deltas}")
 """
 
-py"runGame"(seen, getNextAction, observeActionTaken, 20)
+py"runGame"(getSeen, getNextAction, observeActionTaken, 20)
